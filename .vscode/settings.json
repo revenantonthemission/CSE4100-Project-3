@@ -1,0 +1,8 @@
+{
+  "files.associations": {
+    "csapp.h": "c",
+    "sstream": "c",
+    "ios": "c"
+  },
+  "C_Cpp.default.compilerPath": "/opt/homebrew/opt/llvm/bin/clang"
+}
