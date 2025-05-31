@@ -209,6 +209,8 @@ void echo_cnt(int connfd) {
       Rio_writen(connfd, status, MAXLINE);
       V(&mutex);
       break;
+    } else {
+      Fputs(buf, stdout);
     }
   }
   P(&mutex);
