@@ -70,7 +70,6 @@ int main(int argc, char **argv)
 					strcat(buf, "\n");
 				}
 				//strcpy(buf, "buy 1 2\n");
-			
 				Rio_writen(clientfd, buf, strlen(buf));
 				// Rio_readlineb(&rio, buf, MAXLINE);
 				Rio_readnb(&rio, buf, MAXLINE);
