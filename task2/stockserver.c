@@ -3,7 +3,7 @@
  */
 /* $begin echoserverimain */
 #include "csapp.h"
-#define NTHREADS 4
+#define NTHREADS 10
 #define SBUFSIZE 16
 #define STOCK_NUM 10
 #define max(a, b) ((a > b) ? a : b)

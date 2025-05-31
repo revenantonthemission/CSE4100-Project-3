@@ -1,5 +1,4 @@
 #include "csapp.h"
-#include <time.h>
 
 #define MAX_CLIENT 100
 #define ORDER_PER_CLIENT 10
@@ -16,6 +15,7 @@ int main(int argc, char **argv)
 	rio_t rio;
 	clock_t start, end;
 	double duration;
+	FILE *fp;
 
 	if (argc != 4) {
 		fprintf(stderr, "usage: %s <host> <port> <client#>\n", argv[0]);
