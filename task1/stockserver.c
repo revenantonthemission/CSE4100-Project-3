@@ -265,6 +265,7 @@ void check_clients(pool *p) {
         // Close the file after writing
         Fclose(fp);
         V(&mutex);
+        Rio_readlineb(rio, buf, strlen(buf));
         Close(connfd);
         FD_CLR(connfd, &p->read_set);
         p->clientfd[i] = -1;
