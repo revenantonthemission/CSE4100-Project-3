@@ -14,7 +14,8 @@ int main(int argc, char **argv)
 	int clientfd, num_client;
 	char *host, *port, buf[MAXLINE], tmp[3];
 	rio_t rio;
-	struct timeval tvl;
+	clock_t start, end;
+	double duration;
 
 	if (argc != 4) {
 		fprintf(stderr, "usage: %s <host> <port> <client#>\n", argv[0]);
@@ -25,9 +26,6 @@ int main(int argc, char **argv)
 	port = argv[2];
 	num_client = atoi(argv[3]);
 
-	gettimeofday(&tvl, NULL);
-	printf("Client #%d started at %ld:%ld", num_client, tvl.tv_sec, tvl.tv_usec);
-
 /*	fork for each client process	*/
 	while(runprocess < num_client){
 		//wait(&state);
@@ -37,8 +35,7 @@ int main(int argc, char **argv)
 			return -1;
 		/*	child process		*/
 		else if(pids[runprocess] == 0){
-			printf("child %ld\n", (long)getpid());
-
+			start = clock();
 			clientfd = Open_clientfd(host, port);
 			Rio_readinitb(&rio, clientfd);
 			srand((unsigned int) getpid());
@@ -81,7 +78,9 @@ int main(int argc, char **argv)
 
 				usleep(1000000);
 			}
-
+			end = clock();
+			duration = (double)(end-start)/CLOCKS_PER_SEC;
+			printf("Client %ld : %lf\n", (long)getpid(), duration);
 			Close(clientfd);
 			exit(0);
 		}
@@ -109,9 +108,5 @@ int main(int argc, char **argv)
 
 	Close(clientfd); //line:netp:echoclient:close
 	exit(0);*/
-
-	gettimeofday(&tvl, NULL);
-	printf("Client #%d ended at %ld:%ld", num_client, tvl.tv_sec, tvl.tv_usec);
-
 	return 0;
 }
