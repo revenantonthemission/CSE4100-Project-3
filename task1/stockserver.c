@@ -3,6 +3,7 @@
  */
 /* $begin echoserverimain */
 #include "csapp.h"
+#define STOCK_NUM 10
 #define max(a, b) ((a > b) ? a : b)
 
 typedef struct {
@@ -19,7 +20,7 @@ typedef struct {
   int ID;
   int left_stock;
   int price;
-  int readcnt;
+  int read_cnt;
   sem_t mutex;
 } item;
 
@@ -45,8 +46,11 @@ node *insert_stock(node *tree, int id, int left_stock, int price);
 void delete_stock(node *tree, int id);
 item *query_stock(node *tree, int id);
 
-int byte_cnt = 0;
+static sem_t mutex;
 node *stock_tree = NULL;
+item *order[STOCK_NUM] = {
+    NULL,
+};
 
 int main(int argc, char **argv) {
   int listenfd, connfd;
@@ -56,7 +60,7 @@ int main(int argc, char **argv) {
   static pool pool;
   char client_hostname[MAXLINE], client_port[MAXLINE], status[MAXLINE];
   char *stateptr;
-  int id, stock, price;
+  int id, stock, price, n;
   FILE *fp;
 
   // When we execute stockserver, we need another argument named port.
@@ -72,11 +76,13 @@ int main(int argc, char **argv) {
   // open the file with stock data
   fp = Fopen("stock.txt", "r");
   // read stock table
+  n = 0;
   while (Fgets(status, MAXLINE, fp) != NULL) {
     id = atoi(strtok_r(status, " ", &stateptr));
     stock = atoi(strtok_r(NULL, " ", &stateptr));
     price = atoi(strtok_r(NULL, " ", &stateptr));
     stock_tree = insert_stock(stock_tree, id, stock, price);
+    order[n++] = query_stock(stock_tree, id);
     memset(status, '\0', MAXLINE);
   }
   Fclose(fp);
@@ -115,6 +121,7 @@ int main(int argc, char **argv) {
 
 void init_pool(int listenfd, pool *p) {
   int i;
+  Sem_init(&mutex, 0, 1);
   p->maxi = -1;
   for (i = 0; i < FD_SETSIZE; i++) {
     p->clientfd[i] = -1;
@@ -154,12 +161,18 @@ void check_clients(pool *p) {
       {
           '\0',
       },
-       status[MAXLINE] = {
+       status[MAXLINE] =
+           {
+               '\0',
+           },
+       result[MAXLINE] = {
            '\0',
        };
-  char *comp[3] = {
-      NULL,
-  }, *stateptr;
+  char *comp[3] =
+      {
+          NULL,
+      },
+       *stateptr;
   rio_t *rio;
   FILE *fp;
 
@@ -169,22 +182,39 @@ void check_clients(pool *p) {
     if ((connfd > 0) && FD_ISSET(connfd, &p->ready_set)) {
       p->nready--;
       if ((n = Rio_readlineb(rio, buf, MAXLINE)) != 0) {
-        byte_cnt += n;
-
         comp[0] = strtok_r(buf, " \n", &stateptr);
         for (int x = 1; x < 3; x++) {
           comp[x] = strtok_r(NULL, " \n", &stateptr);
         }
         if (!strcmp(comp[0], "show")) {
           // print stock_tree to client
-          node *current = stock_tree;
-          memset(status, '\0', MAXLINE);
-          inorder_traverse(current, status);
-          Rio_writen(connfd, status, MAXLINE);
+          memset(result, '\0', MAXLINE);
+          for (int i = 0; i < STOCK_NUM; i++) {
+            if (order[i]) {
+              P(&mutex);
+              order[i]->read_cnt++;
+              if (order[i]->read_cnt == 1)
+                P(&order[i]->mutex);
+              V(&mutex);
+              sprintf(status, "%d %d %d\n", order[i]->ID, order[i]->left_stock,
+                      order[i]->price);
+              strcat(result, status);
+              P(&mutex);
+              order[i]->read_cnt--;
+              if (order[i]->read_cnt == 0)
+                V(&order[i]->mutex);
+              V(&mutex);
+            }
+          }
+          P(&mutex);
+          Rio_writen(connfd, result, MAXLINE);
+          V(&mutex);
         } else if (!strcmp(comp[0], "buy")) {
+          P(&mutex);
           id = atoi(comp[1]);
           stock = atoi(comp[2]);
           item *stock_item = query_stock(stock_tree, id);
+          P(&stock_item->mutex);
           if (stock_item == NULL || stock_item->left_stock < stock) {
             sprintf(status, "Not enough left stocks\n");
             Rio_writen(connfd, status, MAXLINE);
@@ -193,10 +223,14 @@ void check_clients(pool *p) {
             sprintf(status, "[buy] success\n");
             Rio_writen(connfd, status, MAXLINE);
           }
+          V(&stock_item->mutex);
+          V(&mutex);
         } else if (!strcmp(comp[0], "sell")) {
+          P(&mutex);
           id = atoi(comp[1]);
           stock = atoi(comp[2]);
           item *stock_item = query_stock(stock_tree, id);
+          P(&stock_item->mutex);
           if (stock_item == NULL) {
             sprintf(status, "[sell] fail\n");
             Rio_writen(connfd, status, MAXLINE);
@@ -205,16 +239,32 @@ void check_clients(pool *p) {
             sprintf(status, "[sell] success\n");
             Rio_writen(connfd, status, MAXLINE);
           }
+          V(&stock_item->mutex);
+          V(&mutex);
+        } else if (!strcmp(comp[0], "exit")) {
+          P(&mutex);
+          // 종료 메시지 전송
+          sprintf(status, "exit\n");
+          Rio_writen(connfd, status, MAXLINE);
+          V(&mutex);
+          break;
         }
       } else {
+        P(&mutex);
         // write stock data to file
         fp = Fopen("stock.txt", "w");
-        memset(status, '\0', MAXLINE);
-        inorder_traverse(stock_tree, status);
-        Write(fileno(fp), status, strlen(status));
+        memset(result, '\0', MAXLINE);
+        for (int i = 0; i < STOCK_NUM; i++) {
+          if (order[i]) {
+            sprintf(status, "%d %d %d\n", order[i]->ID, order[i]->left_stock,
+                    order[i]->price);
+            strcat(result, status);
+          }
+        }
+        Write(fileno(fp), result, strlen(result));
         // Close the file after writing
         Fclose(fp);
-
+        V(&mutex);
         Close(connfd);
         FD_CLR(connfd, &p->read_set);
         p->clientfd[i] = -1;
@@ -222,17 +272,6 @@ void check_clients(pool *p) {
     }
   }
 }
-
-void inorder_traverse(node *root, char *status) {
-  if (root == NULL || root->stock == NULL)
-    return;
-
-  inorder_traverse(root->left, status);
-  sprintf(status + strlen(status), "%d %d %d\n", root->stock->ID,
-          root->stock->left_stock, root->stock->price);
-  inorder_traverse(root->right, status);
-}
-
 node *left_rotate(node *x) {
   node *y = x->right;
   node *T2 = y->left;
@@ -271,7 +310,7 @@ node *insert_stock(node *tree, int id, int left_stock, int price) {
     z->ID = id;
     z->left_stock = left_stock;
     z->price = price;
-    z->readcnt = 0;
+    z->read_cnt = 0;
     sem_init(&z->mutex, 0, 1);
 
     node *new_node = malloc(sizeof(node));

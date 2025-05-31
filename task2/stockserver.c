@@ -52,7 +52,7 @@ void delete_stock(node *tree, int id);
 item *query_stock(node *tree, int id);
 
 sbuf_t sbuf;
-static sem_t mutex, rd;
+static sem_t mutex;
 node *stock_tree = NULL;
 item *order[STOCK_NUM] = {
     NULL,
@@ -117,7 +117,6 @@ int main(int argc, char **argv) {
 
 static void init_echo_cnt(void) {
   Sem_init(&mutex, 0, 1);
-  Sem_init(&rd, 0, 1);
 }
 
 void echo_cnt(int connfd) {
