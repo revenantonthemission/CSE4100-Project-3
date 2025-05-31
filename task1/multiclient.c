@@ -14,6 +14,7 @@ int main(int argc, char **argv)
 	int clientfd, num_client;
 	char *host, *port, buf[MAXLINE], tmp[3];
 	rio_t rio;
+	struct timeval tvl;
 
 	if (argc != 4) {
 		fprintf(stderr, "usage: %s <host> <port> <client#>\n", argv[0]);
@@ -23,6 +24,9 @@ int main(int argc, char **argv)
 	host = argv[1];
 	port = argv[2];
 	num_client = atoi(argv[3]);
+
+	gettimeofday(&tvl, NULL);
+	printf("Client #%d started at %ld:%ld", num_client, tvl.tv_sec, tvl.tv_usec);
 
 /*	fork for each client process	*/
 	while(runprocess < num_client){
@@ -105,6 +109,9 @@ int main(int argc, char **argv)
 
 	Close(clientfd); //line:netp:echoclient:close
 	exit(0);*/
+
+	gettimeofday(&tvl, NULL);
+	printf("Client #%d ended at %ld:%ld", num_client, tvl.tv_sec, tvl.tv_usec);
 
 	return 0;
 }
