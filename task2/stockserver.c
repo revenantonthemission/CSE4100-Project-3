@@ -1,5 +1,5 @@
 #include "csapp.h"
-#define NTHREADS 4 /* The number of threads in the worker thread pool */
+#define NTHREADS 16 /* The number of threads in the worker thread pool */
 #define SBUFSIZE 100 /* The size of buffer shared by the master thread & worker threads */
 #define STOCK_NUM 10 /* The number of stock IDs in the stock server */
 #define max(a, b) ((a > b) ? a : b) /* Macro for comparison */
