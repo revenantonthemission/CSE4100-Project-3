@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
   int clientfd, num_client;
   char *host, *port, buf[MAXLINE], rec[MAXLINE], tmp[3];
   rio_t rio;
-  clock_t start, end;
+  struct timeval start, end;
   double duration;
   FILE *fp;
 
@@ -25,6 +25,8 @@ int main(int argc, char **argv) {
   port = argv[2];
   num_client = atoi(argv[3]);
 
+  gettimeofday(&start, NULL);
+
   /*	fork for each client process	*/
   while (runprocess < num_client) {
     // wait(&state);
@@ -34,7 +36,6 @@ int main(int argc, char **argv) {
       return -1;
     /*	child process		*/
     else if (pids[runprocess] == 0) {
-      start = clock();
       clientfd = Open_clientfd(host, port);
       Rio_readinitb(&rio, clientfd);
       srand((unsigned int)getpid());
@@ -75,10 +76,6 @@ int main(int argc, char **argv) {
 
         usleep(1000000);
       }
-      end = clock();
-      duration = (double)(end - start) / CLOCKS_PER_SEC;
-      printf("Client %ld : %lf\n", (long)getpid(), duration);
-      Fclose(fp);
       Close(clientfd);
       exit(0);
     }
@@ -93,6 +90,11 @@ int main(int argc, char **argv) {
   for (i = 0; i < num_client; i++) {
     waitpid(pids[i], &status, 0);
   }
+  gettimeofday(&end, NULL);
+  long seconds = end.tv_sec - start.tv_sec;
+  long useconds = end.tv_usec - start.tv_usec;
+  double elapsed = seconds + useconds / 1000000.0;
+  printf("Total elapsed time: %.6f seconds\n", elapsed);
 
   /*clientfd = Open_clientfd(host, port);
   Rio_readinitb(&rio, clientfd);
