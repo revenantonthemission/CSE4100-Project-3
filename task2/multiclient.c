@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
       }
       end = clock();
       duration = (double)(end - start) / CLOCKS_PER_SEC;
-	  printf("Client %ld : %lf\n", (long)getpid(), duration);
+      printf("Client %ld : %lf\n", (long)getpid(), duration);
       Fclose(fp);
       Close(clientfd);
       exit(0);

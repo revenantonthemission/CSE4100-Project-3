@@ -1,7 +1,6 @@
 #include "csapp.h"
 #define NTHREADS 4 /* The number of threads in the worker thread pool */
-#define SBUFSIZE                                                               \
-  16 /* The size of buffer shared by the master thread & worker threads */
+#define SBUFSIZE 16 /* The size of buffer shared by the master thread & worker threads */
 #define STOCK_NUM 10 /* The number of stock IDs in the stock server */
 #define max(a, b) ((a > b) ? a : b) /* Macro for comparison */
 
@@ -30,7 +29,7 @@ typedef struct node {
   int height;         /* Height of the subtree */
 } node;
 
-static void init_echo_cnt();  /* initialize mutex */
+static void init_check_order();  /* initialize mutex */
 void check_order(int connfd); /* client */
 void *thread(void *vargs);    /* thread function */
 
@@ -118,7 +117,7 @@ int main(int argc, char **argv) {
 }
 
 /* initialize mutex */
-static void init_echo_cnt(void) { Sem_init(&mutex, 0, 1); }
+static void init_check_order(void) { Sem_init(&mutex, 0, 1); }
 
 /* client */
 void check_order(int connfd) {
@@ -142,7 +141,7 @@ void check_order(int connfd) {
   static pthread_once_t once = PTHREAD_ONCE_INIT;
 
   /* Execute init_echo_cnt once  */
-  Pthread_once(&once, init_echo_cnt);
+  Pthread_once(&once, init_check_order);
 
   /* Initialize robust I/O*/
   Rio_readinitb(&rio, connfd);
