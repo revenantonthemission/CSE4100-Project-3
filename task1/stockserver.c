@@ -179,8 +179,7 @@ void check_clients(pool *p) {
       if ((n = Rio_readlineb(rio, buf, MAXLINE)) != 0) {
 
         printf("server received %d bytes\n", n);
-        Rio_writen(connfd, buf, n);
-
+        
         /* Parse the line from the client */
         comp[0] = strtok_r(buf, " \n", &stateptr);
         for (int x = 1; x < 3; x++) {

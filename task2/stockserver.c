@@ -151,7 +151,6 @@ void check_order(int connfd) {
   while ((n = Rio_readlineb(&rio, buf, MAXLINE) != 0)) {
 
     printf("server received %d bytes\n", n);
-    Rio_writen(connfd, buf, n);
 
     /* Parse the line from the client */
     comp[0] = strtok_r(buf, " \n", &stateptr);
