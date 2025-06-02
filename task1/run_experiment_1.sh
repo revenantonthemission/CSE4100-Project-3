@@ -17,11 +17,6 @@ echo "ClientCount ElapsedTime" > $RESULT_FILE
 
 for COUNT in "${CLIENT_COUNTS[@]}"
 do
-    echo "▶ Starting server..."
-    $SERVER_EXEC &
-    SERVER_PID=$!
-    sleep 1  # 서버가 시작할 시간 확보
-
     echo "▶ Running with $COUNT clients..."
 
     # multiclient 내부에서 gettimeofday() 출력하도록 구현되어 있어야 함

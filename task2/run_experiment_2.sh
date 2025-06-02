@@ -1,10 +1,9 @@
 #!/bin/bash
 
 # 설정
-PORT=60125
-HOST="163.239.14.107"
+PORT=65525
+HOST="163.239.88.120"
 CLIENTS=20        # 고정된 클라이언트 수
-LOOP=50           # 각 클라이언트당 요청 수
 SERVER_EXEC="./stockserver $PORT"
 MULTICLIENT="./multiclient"
 
@@ -52,7 +51,7 @@ do
     sleep 1
 
     echo "▶ Running multiclient..."
-    OUTPUT=$($MULTICLIENT $HOST $PORT $CLIENTS $LOOP $SHOW $BUY $SELL | grep "동시 처리율")
+    OUTPUT=$($MULTICLIENT $HOST $PORT $CLIENTS | grep "Total elapsed time")
     echo "$OUTPUT"
 
     # 시간 추출 및 결과 저장

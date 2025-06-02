@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 서버 실행 명령 (포트번호는 상황에 맞게 수정)
-PORT=65525
+PORT=60125
 SERVER_EXEC="./stockserver $PORT"
 
 # 클라이언트 실행 명령 (IP는 localhost 또는 cspro IP)
@@ -17,11 +17,6 @@ echo "ClientCount ElapsedTime" > $RESULT_FILE
 
 for COUNT in "${CLIENT_COUNTS[@]}"
 do
-    echo "▶ Starting server..."
-    $SERVER_EXEC &
-    SERVER_PID=$!
-    sleep 1  # 서버가 시작할 시간 확보
-
     echo "▶ Running with $COUNT clients..."
 
     # multiclient 내부에서 gettimeofday() 출력하도록 구현되어 있어야 함

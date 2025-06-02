@@ -6,6 +6,7 @@
 #define STOCK_NUM 10
 #define BUY_SELL_MAX 10
 
+
 int main(int argc, char **argv) 
 {
 	pid_t pids[MAX_CLIENT];
@@ -45,7 +46,10 @@ int main(int argc, char **argv)
 			srand((unsigned int) getpid());
 
 			for(i=0;i<ORDER_PER_CLIENT;i++){
-				int option = rand() % 3;
+				//int option = rand() % 3;
+				int option = 0; // SHOW only
+				//int option = rand() % 2; // BUY & SHOW
+				//int option = rand() % 2 + 1; // SELL & BUY
 				
 				if(option == 0){//show
 					strcpy(buf, "show\n");
