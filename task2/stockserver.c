@@ -1,62 +1,60 @@
-/*
- * echoserveri.c - An iterative echo server
- */
-/* $begin echoserverimain */
 #include "csapp.h"
-#define NTHREADS 10
-#define SBUFSIZE 16
-#define STOCK_NUM 10
-#define max(a, b) ((a > b) ? a : b)
+#define NTHREADS 4 /* The number of threads in the worker thread pool */
+#define SBUFSIZE                                                               \
+  16 /* The size of buffer shared by the master thread & worker threads */
+#define STOCK_NUM 10 /* The number of stock IDs in the stock server */
+#define max(a, b) ((a > b) ? a : b) /* Macro for comparison */
 
 typedef struct {
   int *buf;    /* Buffer array */
   int n;       /* Maximum number of slots */
-  int front;   /* buf[(front+1)%n] is first item */
-  int rear;    /* buf[rear%n] is last item */
+  int front;   /* buf[(front+1)%n] is the first item */
+  int rear;    /* buf[rear%n] is the last item */
   sem_t mutex; /* Protects accesses to buf */
   sem_t slots; /* Counts available slots */
   sem_t items; /* Counts available items */
 } sbuf_t;
 
 typedef struct {
-  int ID;
-  int left_stock;
-  int price;
-  int read_cnt;
-  sem_t mutex;
+  int ID;         /* Stock ID */
+  int left_stock; /* The number of stocks left in the market */
+  int price;      /* The price of this stock */
+  int read_cnt;   /* The number of clients reading this item */
+  sem_t mutex;    /* Semaphore for safe writing */
 } item;
 
 typedef struct node {
-  item *stock;
-  struct node *left;
-  struct node *right;
-  int height; // Height of the node for balancing
+  item *stock;        /* The stock */
+  struct node *left;  /* The left subtree of this node */
+  struct node *right; /* The right subtree of this node */
+  int height;         /* Height of the subtree */
 } node;
 
-static void init_echo_cnt();
-void echo_cnt(int connfd);
-void *thread(void *vargs);
+static void init_echo_cnt();  /* initialize mutex */
+void check_order(int connfd); /* client */
+void *thread(void *vargs);    /* thread function */
 
-void sbuf_init(sbuf_t *sp, int n);
-void sbuf_deinit(sbuf_t *sp);
-void sbuf_insert(sbuf_t *sp, int item);
-int sbuf_remove(sbuf_t *sp);
+void sbuf_init(sbuf_t *sp, int n);      /* Initialize shared buffer */
+void sbuf_deinit(sbuf_t *sp);           /* Deinitialize shared buffer */
+void sbuf_insert(sbuf_t *sp, int item); /* Insert item into shared buffer */
+int sbuf_remove(sbuf_t *sp);            /* remove item from shared buffer */
 
-node *left_rotate(node *x);
-node *right_rotate(node *y);
-int get_balance(node *n);
-int height(node *n);
+node *left_rotate(node *x);  /* Rotate the tree to the left */
+node *right_rotate(node *y); /* Rotate the tree to the right */
+int get_balance(node *n);    /* Check the balance of the tree */
+int height(node *n);         /* Get the height of the tree */
 
-node *insert_stock(node *tree, int id, int left_stock, int price);
-void delete_stock(node *tree, int id);
-item *query_stock(node *tree, int id);
+node *insert_stock(node *tree, int id, int left_stock,
+                   int price);         /* Insert the node into the tree */
+void delete_stock(node *tree, int id); /* Delete the node from the tree */
+item *query_stock(node *tree, int id); /* Find a specific node from the tree */
 
-sbuf_t sbuf;
-static sem_t mutex;
-node *stock_tree = NULL;
+sbuf_t sbuf;             /* shared buffer */
+static sem_t mutex;      /* semaphore for reading */
+node *stock_tree = NULL; /* The stock tree */
 item *order[STOCK_NUM] = {
     NULL,
-};
+}; /* The array to preserve the stock number */
 
 int main(int argc, char **argv) {
   int listenfd, connfd;
@@ -68,23 +66,26 @@ int main(int argc, char **argv) {
   int id, stock, price, n;
   FILE *fp;
 
-  // When we execute stockserver, we need another argument named port.
+  /* When we execute stockserver, we need another argument named port. */
   if (argc != 2) {
     fprintf(stderr, "usage: %s <port>\n", argv[0]);
     exit(0);
   }
 
-  // Open a file descriptor(port) and wait for request
+  /* Open a file descriptor(port) and wait for request */
   listenfd = Open_listenfd(argv[1]);
+
+  /* initialize the shared buffer */
   sbuf_init(&sbuf, SBUFSIZE);
 
+  /* Create worker threads */
   for (int i = 0; i < NTHREADS; i++) {
     Pthread_create(&tid, NULL, thread, NULL);
   }
 
-  // open the file with stock data
+  /* open the file with stock data */
   fp = Fopen("stock.txt", "r");
-  // read stock table
+  /* read stock table from the file and make the stock tree*/
   n = 0;
   while (Fgets(status, MAXLINE, fp) != NULL) {
     id = atoi(strtok_r(status, " ", &stateptr));
@@ -94,15 +95,17 @@ int main(int argc, char **argv) {
     order[n++] = query_stock(stock_tree, id);
     memset(status, '\0', MAXLINE);
   }
+  /* close the file */
   Fclose(fp);
 
+  /* Manage connection */
   while (1) {
     clientlen = sizeof(struct sockaddr_storage);
     connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
     sbuf_insert(&sbuf, connfd);
   }
 
-  // delete the stock tree
+  /* delete the stock tree */
   while (stock_tree->left != NULL || stock_tree->right != NULL) {
     if (stock_tree->left != NULL) {
       delete_stock(stock_tree, stock_tree->left->stock->ID);
@@ -113,13 +116,12 @@ int main(int argc, char **argv) {
 
   exit(0);
 }
-/* $end echoserverimain */
 
-static void init_echo_cnt(void) {
-  Sem_init(&mutex, 0, 1);
-}
+/* initialize mutex */
+static void init_echo_cnt(void) { Sem_init(&mutex, 0, 1); }
 
-void echo_cnt(int connfd) {
+/* client */
+void check_order(int connfd) {
   int n, id, stock;
   char buf[MAXLINE],
       status[MAXLINE] =
@@ -139,39 +141,49 @@ void echo_cnt(int connfd) {
   rio_t rio;
   static pthread_once_t once = PTHREAD_ONCE_INIT;
 
+  /* Execute init_echo_cnt once  */
   Pthread_once(&once, init_echo_cnt);
+
+  /* Initialize robust I/O*/
   Rio_readinitb(&rio, connfd);
+
+  /* Continuously read a line from the client */
   while ((n = Rio_readlineb(&rio, buf, MAXLINE) != 0)) {
-    // do some operation
+
+    printf("server received %d bytes\n", n);
+    Rio_writen(connfd, buf, n);
+
+    /* Parse the line from the client */
     comp[0] = strtok_r(buf, " \n", &stateptr);
     for (int x = 1; x < 3; x++) {
       comp[x] = strtok_r(NULL, " \n", &stateptr);
     }
+
+    /* Do the appropriate action based on the parsed line */
     if (!strcmp(comp[0], "show")) {
-      // print stock_tree to client
+      /* show the stock data */
       memset(result, '\0', MAXLINE);
       for (int i = 0; i < STOCK_NUM; i++) {
-        if (order[i]) {
-          P(&mutex);
-          order[i]->read_cnt++;
-          if (order[i]->read_cnt == 1)
-            P(&order[i]->mutex);
-          V(&mutex);
+        if (order[i]) {                /* if the stock exists */
+          P(&mutex);                   /* get the lock for reading */
+          order[i]->read_cnt++;        /* increase the read count */
+          if (order[i]->read_cnt == 1) /* after it is properly increased */
+            P(&order[i]->mutex);       /* get the lock for item */
+          V(&mutex);                   /* free the lock for reading*/
           sprintf(status, "%d %d %d\n", order[i]->ID, order[i]->left_stock,
                   order[i]->price);
           strcat(result, status);
-          P(&mutex);
-          order[i]->read_cnt--;
-          if (order[i]->read_cnt == 0)
-            V(&order[i]->mutex);
-          V(&mutex);
+          P(&mutex);                   /* get the lock for reading */
+          order[i]->read_cnt--;        /* decrease the read count */
+          if (order[i]->read_cnt == 0) /* after it is properly decreased */
+            V(&order[i]->mutex);       /* free the lock for item */
+          V(&mutex);                   /* free the lock for reading */
         }
       }
-      P(&mutex);
+      P(&mutex); /* get the lock */
       Rio_writen(connfd, result, MAXLINE);
-      V(&mutex);
+      V(&mutex); /* free the lock */
     } else if (!strcmp(comp[0], "buy")) {
-      P(&mutex);
       id = atoi(comp[1]);
       stock = atoi(comp[2]);
       item *stock_item = query_stock(stock_tree, id);
@@ -185,9 +197,7 @@ void echo_cnt(int connfd) {
         Rio_writen(connfd, status, MAXLINE);
       }
       V(&stock_item->mutex);
-      V(&mutex);
     } else if (!strcmp(comp[0], "sell")) {
-      P(&mutex);
       id = atoi(comp[1]);
       stock = atoi(comp[2]);
       item *stock_item = query_stock(stock_tree, id);
@@ -201,20 +211,18 @@ void echo_cnt(int connfd) {
         Rio_writen(connfd, status, MAXLINE);
       }
       V(&stock_item->mutex);
-      V(&mutex);
     } else if (!strcmp(comp[0], "exit")) {
       P(&mutex);
-      // 종료 메시지 전송
+      // send message to the client
       sprintf(status, "exit\n");
       Rio_writen(connfd, status, MAXLINE);
       V(&mutex);
       break;
-    } else {
-      Fputs(buf, stdout);
     }
   }
+
+  /* Save the stock tree to the file */
   P(&mutex);
-  // write stock data to file
   fp = Fopen("stock.txt", "w");
   memset(result, '\0', MAXLINE);
   for (int i = 0; i < STOCK_NUM; i++) {
@@ -225,16 +233,16 @@ void echo_cnt(int connfd) {
     }
   }
   Write(fileno(fp), result, strlen(result));
-  // Close the file after writing
   Fclose(fp);
   V(&mutex);
 }
 
+/* thread function */
 void *thread(void *args) {
   Pthread_detach(Pthread_self());
   while (1) {
     int connfd = sbuf_remove(&sbuf);
-    echo_cnt(connfd);
+    check_order(connfd);
     Close(connfd);
   }
 }
@@ -281,6 +289,7 @@ int sbuf_remove(sbuf_t *sp) {
 /* $end sbuf_remove */
 /* $end sbufc */
 
+/* Rotate the tree to the left */
 node *left_rotate(node *x) {
   node *y = x->right;
   node *T2 = y->left;
@@ -294,6 +303,7 @@ node *left_rotate(node *x) {
   return y;
 }
 
+/* Rotate the tree to the right */
 node *right_rotate(node *y) {
   node *x = y->left;
   node *T2 = x->right;
@@ -307,12 +317,15 @@ node *right_rotate(node *y) {
   return x;
 }
 
+/* Check the balance of the tree */
 int get_balance(node *n) {
   return n == NULL ? 0 : height(n->left) - height(n->right);
 }
 
+/* Get the height of the tree */
 int height(node *n) { return n == NULL ? 0 : n->height; }
 
+/* Insert the node into the tree */
 node *insert_stock(node *tree, int id, int left_stock, int price) {
   if (tree == NULL) {
     item *z = malloc(sizeof(item));
@@ -360,6 +373,8 @@ node *insert_stock(node *tree, int id, int left_stock, int price) {
 
   return tree;
 }
+
+/* Delete the node from the tree */
 void delete_stock(node *tree, int id) {
   node *current = tree->left;
   node *parent = NULL;
@@ -407,6 +422,8 @@ void delete_stock(node *tree, int id) {
     free(target);
   }
 }
+
+/* Find a specific node from the tree */
 item *query_stock(node *tree, int id) {
   if (tree == NULL)
     return NULL;

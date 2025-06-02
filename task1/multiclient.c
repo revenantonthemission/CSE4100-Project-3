@@ -80,8 +80,7 @@ int main(int argc, char **argv)
 			}
 			end = clock();
 			duration = (double)(end-start)/CLOCKS_PER_SEC;
-			sprintf(buf, "Client %ld : %lf\n", (long)getpid(), duration);
-			Rio_writen(clientfd, buf, strlen(buf));
+			printf("Client %ld : %lf\n", (long)getpid(), duration);
 			Close(clientfd);
 			exit(0);
 		}
